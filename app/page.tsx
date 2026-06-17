@@ -1,12 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import universitiesData from '@/data/universities.json'
-import { PAGE_SIZE, LETTERS } from '@/lib/constants'
+import { PAGE_SIZE, LETTERS, COLUMNS } from '@/lib/constants'
 import { getPageList, formatNumber } from '@/lib/utils'
 import { UniversityCard } from '@/components/university-card'
 import { StatPill } from "@/components/stats-pill"
 import { SearchInput } from "@/components/search-input"
+import { ViewToggle } from '@/components/view-toggle'
+import { ColumnSelector } from '@/components/column-selector'
+import { UniversityTable } from '@/components/university-table'
 
 const universities = universitiesData as University[]
 
@@ -33,6 +36,60 @@ export default function Page() {
   const [query, setQuery] = useState('')
   const [letter, setLetter] = useState('All')
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(
+    () =>
+      Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth])) as Record<
+        ColumnKey,
+        number
+      >,
+  )
+
+  const resizingRef = useRef<{
+    key: ColumnKey
+    startX: number
+    startWidth: number
+  } | null>(null)
+
+  const handleResizeStart = useCallback(
+    (key: ColumnKey, e: React.MouseEvent) => {
+      e.preventDefault()
+      resizingRef.current = {
+        key,
+        startX: e.clientX,
+        startWidth: columnWidths[key],
+      }
+    },
+    [columnWidths],
+  )
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!resizingRef.current) return
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      const { key, startX, startWidth } = resizingRef.current
+      const col = COLUMNS.find((c) => c.key === key)!
+      const newWidth = Math.max(col.minWidth, startWidth + (e.clientX - startX))
+      setColumnWidths((prev) => ({ ...prev, [key]: newWidth }))
+    }
+    function handleMouseUp() {
+      if (!resizingRef.current) return
+      resizingRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    () => new Set(COLUMNS.map((c) => c.key)),
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -76,6 +133,20 @@ export default function Page() {
   function goToPage(p: number) {
     setPage(p)
     scrollToBrowse()
+  }
+
+  const visibleColKeys = useMemo(
+    () => COLUMNS.filter((c) => visibleColumns.has(c.key)).map((c) => c.key),
+    [visibleColumns],
+  )
+
+  function toggleColumn(key: ColumnKey) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   return (
@@ -151,9 +222,9 @@ export default function Page() {
         {/* Toolbar */}
         <div className="sticky top-[57px] z-20 -mx-4 mb-8 border-b border-slate-200 bg-slate-50/90 px-4 py-4 backdrop-blur-md sm:mx-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="lg:max-w-xs lg:flex-1">
+            {/* <div className="lg:max-w-xs lg:flex-1">
               <SearchInput value={query} onChange={changeQuery} variant="bar" />
-            </div>
+            </div> */}
             <div className="-mx-1 flex gap-1 overflow-x-auto pb-1">
               {LETTERS.map((l) => {
                 const active = l === letter
@@ -173,6 +244,16 @@ export default function Page() {
                 )
               })}
             </div>
+             <div className="flex ml-2 shrink-0 items-center gap-2">
+                <ViewToggle value={viewMode} onChange={setViewMode} />
+                {viewMode === 'table' && (
+                  <ColumnSelector
+                    columns={COLUMNS}
+                    visible={visibleColumns}
+                    onToggle={toggleColumn}
+                  />
+                )}
+              </div>
           </div>
         </div>
 
@@ -209,8 +290,17 @@ export default function Page() {
           )}
         </div>
 
-        {/* Grid / empty state */}
-        {pageItems.length > 0 ? (
+         {/* Content */}
+        {pageItems.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
+            <p className="text-lg font-semibold text-slate-700">
+              No universities found
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Try a different search term or letter.
+            </p>
+          </div>
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pageItems.map((u, i) => (
               <UniversityCard
@@ -221,16 +311,13 @@ export default function Page() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
-            <p className="text-lg font-semibold text-slate-700">
-              No universities found
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              Try a different search term or letter.
-            </p>
-          </div>
+          <UniversityTable
+            items={pageItems}
+            visibleColumns={visibleColKeys}
+            columnWidths={columnWidths}
+            onResizeStart={handleResizeStart}
+          />
         )}
-
         {/* Pagination */}
         {totalPages > 1 && (
           <nav className="mt-12 flex items-center justify-center gap-1.5">

@@ -10,3 +10,11 @@ export const GRADIENTS = [
   'from-cyan-500 to-blue-500',
   'from-fuchsia-500 to-purple-500',
 ] as const
+
+
+export const COLUMNS: ColumnDef[] = [
+  { key: 'name',   label: 'Name',    defaultWidth: 300, minWidth: 160, hideable: false },
+  { key: 'domain', label: 'Domain',  defaultWidth: 200, minWidth: 100, hideable: true  },
+  { key: 'state',  label: 'State',   defaultWidth: 160, minWidth: 80,  hideable: true  },
+  { key: 'url',    label: 'Website', defaultWidth: 110, minWidth: 80,  hideable: true  },
+]

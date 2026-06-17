@@ -9,7 +9,7 @@ interface University {
 // Table 
 
 type ViewMode = 'grid' | 'table'
-type ColumnKey = 'logo' | 'name' | 'domain' | 'state' | 'url'
+type ColumnKey = 'name' | 'domain' | 'state' | 'url'
 
 interface ColumnDef {
   key: ColumnKey
