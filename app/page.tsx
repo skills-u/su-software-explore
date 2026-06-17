@@ -1,18 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import universitiesData from '../data/universities.json'
-
-export interface University {
-  name: string
-  domain: string
-  url: string
-  state: string | null
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import universitiesData from '@/data/universities.json'
+import { PAGE_SIZE, LETTERS, COLUMNS } from '@/lib/constants'
+import { getPageList, formatNumber } from '@/lib/utils'
+import { UniversityCard } from '@/components/university-card'
+import { StatPill } from "@/components/stats-pill"
+import { SearchInput } from "@/components/search-input"
+import { ViewToggle } from '@/components/view-toggle'
+import { ColumnSelector } from '@/components/column-selector'
+import { UniversityTable } from '@/components/university-table'
 
 const universities = universitiesData as University[]
-
-const PAGE_SIZE = 24
 
 /* ---------- precomputed stats (module scope) ---------- */
 const STATS = universities.reduce(
@@ -32,215 +31,65 @@ const STATS = universities.reduce(
   { universities: 0, colleges: 0, tech: 0, edu: 0 },
 )
 
-const LETTERS = ['All', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
-
-/* ---------- helpers ---------- */
-const GRADIENTS = [
-  'from-indigo-500 to-violet-500',
-  'from-violet-500 to-fuchsia-500',
-  'from-sky-500 to-indigo-500',
-  'from-emerald-500 to-teal-500',
-  'from-rose-500 to-pink-500',
-  'from-amber-500 to-orange-500',
-  'from-cyan-500 to-blue-500',
-  'from-fuchsia-500 to-purple-500',
-] as const
-
-function hashString(str: string): number {
-  let h = 0
-  for (let i = 0; i < str.length; i++) {
-    h = (h << 5) - h + str.charCodeAt(i)
-    h |= 0
-  }
-  return Math.abs(h)
-}
-
-function gradientFor(name: string): string {
-  return GRADIENTS[hashString(name) % GRADIENTS.length]
-}
-
-function initials(name: string): string {
-  const stop = new Set(['of', 'the', 'and', 'at', 'for', 'de', 'in', 'a'])
-  const words = name
-    .replace(/[^a-zA-Z0-9 ]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-  const significant = words.filter((w) => !stop.has(w.toLowerCase()))
-  const pick = significant.length ? significant : words
-  const letters = pick
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('')
-  return letters || name.slice(0, 2).toUpperCase()
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString('en-US')
-}
-
-function getPageList(current: number, total: number): (number | '…')[] {
-  const pages: (number | '…')[] = []
-  for (let p = 1; p <= total; p++) {
-    if (p === 1 || p === total || (p >= current - 1 && p <= current + 1)) {
-      pages.push(p)
-    } else if (pages[pages.length - 1] !== '…') {
-      pages.push('…')
-    }
-  }
-  return pages
-}
-
-/* ---------- components ---------- */
-function Logo({ university }: { university: University }) {
-  // Try a crisp brand logo first, then a favicon, then fall back to initials.
-  const sources = useMemo(() => {
-    if (!university.domain) return [] as string[]
-    return [
-      `https://logo.clearbit.com/${university.domain}`,
-      `https://www.google.com/s2/favicons?domain=${university.domain}&sz=128`,
-    ]
-  }, [university.domain])
-  const [idx, setIdx] = useState(0)
-  const src = sources[idx]
-
-  return (
-    <div
-      className={`relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br ${gradientFor(
-        university.name,
-      )} shadow-inner`}
-    >
-      <span className="select-none text-lg font-bold tracking-tight text-white">
-        {initials(university.name)}
-      </span>
-      {src && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={src}
-          src={src}
-          alt={`${university.name} logo`}
-          loading="lazy"
-          onError={() => setIdx((i) => i + 1)}
-          className="absolute inset-0 h-full w-full bg-white object-contain p-1.5"
-        />
-      )}
-    </div>
-  )
-}
-
-function ArrowIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M3 10a.75.75 0 0 1 .75-.75h8.69L9.22 6.03a.75.75 0 1 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H3.75A.75.75 0 0 1 3 10Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  )
-}
-
-function UniversityCard({
-  university,
-  index,
-}: {
-  university: University
-  index: number
-}) {
-  return (
-    <a
-      href={university.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
-      className="group flex animate-fade-up flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100"
-    >
-      <div className="flex items-start gap-4">
-        <Logo university={university} />
-        <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 font-semibold leading-snug text-slate-900 group-hover:text-indigo-600">
-            {university.name}
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {university.state ?? 'United States'}
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-        <span className="truncate font-mono text-xs text-slate-400">
-          {university.domain}
-        </span>
-        <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-indigo-600 opacity-0 transition-opacity group-hover:opacity-100">
-          Visit
-          <ArrowIcon />
-        </span>
-      </div>
-    </a>
-  )
-}
-
-function StatPill({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 backdrop-blur-sm">
-      <div className="text-2xl font-extrabold text-white sm:text-3xl">
-        {formatNumber(value)}
-      </div>
-      <div className="text-xs font-medium uppercase tracking-wide text-indigo-100">
-        {label}
-      </div>
-    </div>
-  )
-}
-
-function SearchInput({
-  value,
-  onChange,
-  variant = 'hero',
-}: {
-  value: string
-  onChange: (v: string) => void
-  variant?: 'hero' | 'bar'
-}) {
-  const hero = variant === 'hero'
-  return (
-    <div className="relative w-full">
-      <svg
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M9 3.5a5.5 5.5 0 1 0 3.39 9.85l3.13 3.13a.75.75 0 1 0 1.06-1.06l-3.13-3.13A5.5 5.5 0 0 0 9 3.5ZM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z"
-          clipRule="evenodd"
-        />
-      </svg>
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Search by name or domain…"
-        aria-label="Search universities"
-        className={
-          hero
-            ? 'w-full rounded-2xl border border-transparent bg-white py-4 pl-12 pr-4 text-base text-slate-900 shadow-2xl shadow-indigo-900/20 outline-none ring-2 ring-transparent transition focus:ring-indigo-300'
-            : 'w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
-        }
-      />
-    </div>
-  )
-}
-
 /* ---------- page ---------- */
 export default function Page() {
   const [query, setQuery] = useState('')
   const [letter, setLetter] = useState('All')
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(
+    () =>
+      Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth])) as Record<
+        ColumnKey,
+        number
+      >,
+  )
+
+  const resizingRef = useRef<{
+    key: ColumnKey
+    startX: number
+    startWidth: number
+  } | null>(null)
+
+  const handleResizeStart = useCallback(
+    (key: ColumnKey, e: React.MouseEvent) => {
+      e.preventDefault()
+      resizingRef.current = {
+        key,
+        startX: e.clientX,
+        startWidth: columnWidths[key],
+      }
+    },
+    [columnWidths],
+  )
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!resizingRef.current) return
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      const { key, startX, startWidth } = resizingRef.current
+      const col = COLUMNS.find((c) => c.key === key)!
+      const newWidth = Math.max(col.minWidth, startWidth + (e.clientX - startX))
+      setColumnWidths((prev) => ({ ...prev, [key]: newWidth }))
+    }
+    function handleMouseUp() {
+      if (!resizingRef.current) return
+      resizingRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    () => new Set(COLUMNS.map((c) => c.key)),
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -284,6 +133,20 @@ export default function Page() {
   function goToPage(p: number) {
     setPage(p)
     scrollToBrowse()
+  }
+
+  const visibleColKeys = useMemo(
+    () => COLUMNS.filter((c) => visibleColumns.has(c.key)).map((c) => c.key),
+    [visibleColumns],
+  )
+
+  function toggleColumn(key: ColumnKey) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   return (
@@ -359,9 +222,9 @@ export default function Page() {
         {/* Toolbar */}
         <div className="sticky top-[57px] z-20 -mx-4 mb-8 border-b border-slate-200 bg-slate-50/90 px-4 py-4 backdrop-blur-md sm:mx-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="lg:max-w-xs lg:flex-1">
+            {/* <div className="lg:max-w-xs lg:flex-1">
               <SearchInput value={query} onChange={changeQuery} variant="bar" />
-            </div>
+            </div> */}
             <div className="-mx-1 flex gap-1 overflow-x-auto pb-1">
               {LETTERS.map((l) => {
                 const active = l === letter
@@ -381,6 +244,16 @@ export default function Page() {
                 )
               })}
             </div>
+             <div className="flex lg:ml-2 shrink-0 items-center gap-2">
+                <ViewToggle value={viewMode} onChange={setViewMode} />
+                {viewMode === 'table' && (
+                  <ColumnSelector
+                    columns={COLUMNS}
+                    visible={visibleColumns}
+                    onToggle={toggleColumn}
+                  />
+                )}
+              </div>
           </div>
         </div>
 
@@ -417,8 +290,17 @@ export default function Page() {
           )}
         </div>
 
-        {/* Grid / empty state */}
-        {pageItems.length > 0 ? (
+         {/* Content */}
+        {pageItems.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
+            <p className="text-lg font-semibold text-slate-700">
+              No universities found
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Try a different search term or letter.
+            </p>
+          </div>
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pageItems.map((u, i) => (
               <UniversityCard
@@ -429,16 +311,13 @@ export default function Page() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
-            <p className="text-lg font-semibold text-slate-700">
-              No universities found
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              Try a different search term or letter.
-            </p>
-          </div>
+          <UniversityTable
+            items={pageItems}
+            visibleColumns={visibleColKeys}
+            columnWidths={columnWidths}
+            onResizeStart={handleResizeStart}
+          />
         )}
-
         {/* Pagination */}
         {totalPages > 1 && (
           <nav className="mt-12 flex items-center justify-center gap-1.5">
