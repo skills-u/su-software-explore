@@ -244,7 +244,7 @@ export default function Page() {
                 )
               })}
             </div>
-             <div className="flex ml-2 shrink-0 items-center gap-2">
+             <div className="flex lg:ml-2 shrink-0 items-center gap-2">
                 <ViewToggle value={viewMode} onChange={setViewMode} />
                 {viewMode === 'table' && (
                   <ColumnSelector

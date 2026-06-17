@@ -88,7 +88,7 @@ export function UniversityTable({
                     return (
                       <td key={col.key} className="px-4 py-3 text-sm text-slate-600">
                         {university.state ?? (
-                          <span className="text-slate-400 italic">United States</span>
+                          <span>United States</span>
                         )}
                       </td>
                     )

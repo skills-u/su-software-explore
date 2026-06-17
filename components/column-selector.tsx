@@ -52,7 +52,7 @@ export function ColumnSelector({
         <div
           role="listbox"
           aria-label="Column visibility"
-          className="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 animate-fade-up"
+          className="absolute left-0 top-full z-50 mt-2 w-48 origin-top-left rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 animate-fade-up"
           style={{ animationDuration: '150ms' }}
         >
           <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
